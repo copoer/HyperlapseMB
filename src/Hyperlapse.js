@@ -136,11 +136,14 @@ var Hyperlapse = function(container, params) {
 		_lookat_heading = 0, _lookat_elevation = 0,
 		_canvas, _context,
 		_camera, _scene, _renderer, _mesh,
-		_loader, _cancel_load = false,
+		_depthLoader, _loader, _cancel_load = false,
+		_effects,
 		_ctime = Date.now(),
 		_ptime = 0, _dtime = 0,
 		_prev_pano_id = null,
-		_raw_points = [], _h_points = [];
+		_raw_points = [], _h_points = [],
+		_last_pano_width, _last_pano_height, _last_depth_width, _last_depth_height,
+		_shader_path = _params.shaderPath || "";
 
 	/**
 	 * @event Hyperlapse#onError
@@ -197,19 +200,31 @@ var Hyperlapse = function(container, params) {
 
 	_container.appendChild( _renderer.domElement );
 
-	_loader = new GSVPANO.PanoLoader( {zoom: _zoom} );
-	_loader.onError = function(message) {
-		handleError({message:message});
-	};
+	_depthLoader = new GSVPANO.PanoDepthLoader();
 
-	_loader.onPanoramaLoad = function() {
-		var canvas = document.createElement("canvas");
-		var context = canvas.getContext('2d');
-		canvas.setAttribute('width',this.canvas.width);
-		canvas.setAttribute('height',this.canvas.height);
-		context.drawImage(this.canvas, 0, 0);
+	_depthLoader.onDepthLoad = function() {
+		var canvas = _h_points[_point_index].image;
+		var ctx = canvas.getContext('2d');
+		var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-		_h_points[_point_index].image = canvas;
+		if(!_effects ||
+			_last_pano_width != canvas.width || _last_pano_height != canvas.height ||
+			_last_depth_width != this.depthMap.width || _last_depth_height != this.depthMap.height) {
+			console.log("(Re-)Initializing motion blur effect...");
+			_effects = new GSVPANO.MotionBlurEffect({
+				panoWidth: canvas.width,
+				panoHeight: canvas.height,
+				depthMapWidth: this.depthMap.width,
+				depthMapHeight: this.depthMap.height,
+				shaderPath: _shader_path
+			});
+		}
+		_last_pano_width = canvas.width;
+		_last_pano_height = canvas.height;
+		_last_depth_width = this.depthMap.width;
+		_last_depth_height = this.depthMap.height;
+		var result = _effects.run(imageData, this.depthMap);
+		_h_points[_point_index].image = result;
 
 		if(++_point_index != _h_points.length) {
 			handleLoadProgress( {position:_point_index} );
@@ -222,6 +237,23 @@ var Hyperlapse = function(container, params) {
 		} else {
 			handleLoadComplete( {} );
 		}
+	}
+
+	_loader = new GSVPANO.PanoLoader( {zoom: _zoom} );
+	_loader.onError = function(message) {
+		handleError({message:message});
+	};
+
+	_loader.onPanoramaLoad = function() {
+		var canvas = document.createElement("canvas");
+		var context = canvas.getContext('2d');
+		canvas.setAttribute('width',this.canvas.width);
+		canvas.setAttribute('height',this.canvas.height);
+		context.drawImage(this.canvas, 0, 0);
+		
+		_h_points[_point_index].image = canvas;
+
+		_depthLoader.load(_h_points[_point_index].pano_id);
 	};
 
 	/**
@@ -305,10 +337,10 @@ var Hyperlapse = function(container, params) {
 
 		_loader.load( _raw_points[_point_index], function() {
 
-			if(_loader.id != _prev_pano_id) {
-				_prev_pano_id = _loader.id;
+			if(_loader.panoId != _prev_pano_id) {
+				_prev_pano_id = _loader.panoId;
 
-				var hp = new HyperlapsePoint( _loader.location, _loader.id, {
+				var hp = new HyperlapsePoint( _loader.location, _loader.panoId, {
 					heading:_loader.rotation, 
 					pitch: _loader.pitch, 
 					elevation: _loader.elevation,

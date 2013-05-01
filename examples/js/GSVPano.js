@@ -110,7 +110,7 @@ GSVPANO.PanoLoader = function (parameters) {
 				self.rotation = rotation;
 				self.pitch = pitch;
 				self.image_date = result.imageDate;
-				self.id = _panoId;
+				self.panoId = _panoId;
 				callback();
 			} else {
 				if( self.onNoPanoramaData ) self.onNoPanoramaData( status );
