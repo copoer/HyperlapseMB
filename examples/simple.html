@@ -25,6 +25,8 @@
 			});
 
 			hyperlapse.onError = function(e) {
+				$("#status").show();
+				$("#status").text(e);
 				console.log(e);
 			};
 
@@ -32,7 +34,12 @@
 				hyperlapse.load();
 			};
 
+			hyperlapse.onLoadProgress = function(e) {
+				$("#status").text("Loading " + e.position+1 + " of " + hyperlapse.length());
+			};
+
 			hyperlapse.onLoadComplete = function(e) {
+				$("#status").hide();
 				hyperlapse.play();
 			};
 
@@ -63,5 +70,6 @@
 </head> 
 <body> 
 	<div id="pano"></div>
+	<div id="status">Loading ...</div>
 </body> 
 </html>
