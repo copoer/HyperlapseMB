@@ -36,7 +36,7 @@
 			};
 
 			hyperlapse.onLoadProgress = function(e) {
-				$("#status").text("Loading " + e.position+1 + " of " + hyperlapse.length());
+				$("#status").text("Loading " + (e.position+1) + " of " + hyperlapse.length());
 			};
 
 			hyperlapse.onLoadComplete = function(e) {
